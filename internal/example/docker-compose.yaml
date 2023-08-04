@@ -1,0 +1,11 @@
+version: '3.7'
+
+services:
+  mongo:
+    image: mongo:4
+    restart: unless-stopped
+    environment:
+        MONGO_INITDB_ROOT_USERNAME: guest
+        MONGO_INITDB_ROOT_PASSWORD: guest
+    ports:
+      - 27017:27017
