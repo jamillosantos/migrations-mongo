@@ -3,13 +3,12 @@ package migrations
 import (
 	"context"
 
-	. "github.com/jamillosantos/migrations-fnc"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )
 
-var _ = Migration(func(ctx context.Context) error {
-	err := DB.CreateCollection(ctx, "users")
+var _ = Migration(func(ctx context.Context, db *mongo.Database) error {
+	err := db.CreateCollection(ctx, "users")
 	if err != nil {
 		return err
 	}

@@ -75,7 +75,7 @@ package migrations
 import (
 	"context"
 
-	. "github.com/jamillosantos/migrations-fnc" // <- provides the Migration function.
+	. "github.com/jamillosantos/migrations/v2/fnc" // <- provides the Migration function.
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
 )

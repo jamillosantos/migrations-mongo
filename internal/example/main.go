@@ -5,8 +5,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/jamillosantos/migrations"
-	migrationszap "github.com/jamillosantos/migrations/zap"
+	"github.com/jamillosantos/migrations/v2"
+	"github.com/jamillosantos/migrations/v2/reporters"
 	_ "github.com/jamillosantos/zapfancyencoder"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -43,19 +43,18 @@ func main() {
 	examplemigrations.DB = db
 
 	// Create the target where the migrations will run.
-	target, err := migrationsmongo.NewTarget(migrations.DefaultSource, db)
+	target, err := migrationsmongo.NewTarget(db)
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to initialize target: %s\n", err)
 		os.Exit(1)
 	}
 
-	// runner is responsible for planning and running the migrations.
-	runner := migrations.NewRunner(migrations.DefaultSource, target)
-
-	reporter := migrationszap.NewRunnerReport(logger) // If you do not use zap, you can implement your own reporter.
+	reporter := reporters.NewZapReporter(logger) // If you do not use zap, you can implement your own reporter.
 
 	// Run the migrations.
-	_, err = migrations.Migrate(ctx, runner, reporter)
+	_, err = migrations.Migrate(ctx, examplemigrations.Source, target, migrations.WithRunnerOptions(
+		migrations.WithReporter(reporter),
+	))
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to migrate: %s\n", err)
 		os.Exit(1)
