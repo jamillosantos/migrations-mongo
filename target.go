@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/jamillosantos/migrations"
+	"github.com/jamillosantos/migrations/v2"
 	"go.mongodb.org/mongo-driver/bson"
 	"go.mongodb.org/mongo-driver/mongo"
 	"go.mongodb.org/mongo-driver/mongo/options"
@@ -19,11 +19,11 @@ var (
 )
 
 type migrationModel struct {
-	ID string `bson:"_id"`
+	ID    string `bson:"_id"`
+	Dirty bool   `bson:"dirty"`
 }
 
 type Target struct {
-	source             migrations.Source
 	db                 *mongo.Database
 	collectionName     string
 	lockCollectionName string
@@ -36,12 +36,8 @@ type Option func(target *Target) error
 // DefaultMigrationsCollectionName is the default collection name to be used to store the migrations.
 const DefaultMigrationsCollectionName = "_migrations"
 
-func NewTarget(source migrations.Source, db *mongo.Database, options ...Option) (*Target, error) {
-	if source == nil {
-		return nil, ErrMissingSource
-	}
+func NewTarget(db *mongo.Database, options ...Option) (*Target, error) {
 	target := &Target{
-		source:           source,
 		db:               db,
 		collectionName:   DefaultMigrationsCollectionName,
 		lockTimeout:      DefaultLockTimeout,
@@ -57,8 +53,8 @@ func NewTarget(source migrations.Source, db *mongo.Database, options ...Option) 
 	return target, nil
 }
 
-func (t *Target) Create() error {
-	err := t.db.CreateCollection(context.Background(), t.collectionName)
+func (t *Target) Create(ctx context.Context) error {
+	err := t.db.CreateCollection(ctx, t.collectionName)
 	switch {
 	case isCollectionAlreadyExists(err):
 		return nil
@@ -72,31 +68,32 @@ func isCollectionAlreadyExists(err error) bool {
 	if err == nil {
 		return false
 	}
-	we, ok := err.(mongo.CommandError)
+	var we mongo.CommandError
+	ok := errors.As(err, &we)
 	return ok && we.Code == 48
 }
 
-func (t *Target) Destroy() error {
+func (t *Target) Destroy(ctx context.Context) error {
 	// TODO if the collection don't exist, don't fail.
-	return t.db.Collection(t.collectionName).Drop(context.Background())
+	return t.db.Collection(t.collectionName).Drop(ctx)
 }
 
 var (
 	sortByPK = options.Find().SetSort(bson.D{{"_id", 1}})
 )
 
-func (t *Target) Current() (migrations.Migration, error) {
-	list, err := t.Done()
+func (t *Target) Current(ctx context.Context) (string, error) {
+	list, err := t.Done(ctx)
 	if err != nil {
-		return nil, err
+		return "", err
 	}
 	if len(list) == 0 {
-		return nil, migrations.ErrNoCurrentMigration
+		return "", migrations.ErrNoCurrentMigration
 	}
 	return list[len(list)-1], nil
 }
 
-func (t *Target) Done() ([]migrations.Migration, error) {
+func (t *Target) Done(ctx context.Context) ([]string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), t.operationTimeout)
 	defer cancel()
 
@@ -108,22 +105,18 @@ func (t *Target) Done() ([]migrations.Migration, error) {
 		_ = rs.Close(ctx)
 	}()
 
-	result := make([]migrations.Migration, 0)
+	result := make([]string, 0)
 	for rs.Next(ctx) {
 		var m migrationModel
 		if err := rs.Decode(&m); err != nil {
 			return nil, err
 		}
-		migration, err := t.source.ByID(m.ID)
-		if err != nil {
-			return nil, err
-		}
-		result = append(result, migration)
+		result = append(result, m.ID)
 	}
 	return result, nil
 }
 
-func (t *Target) Lock() (migrations.Unlocker, error) {
+func (t *Target) Lock(ctx context.Context) (migrations.Unlocker, error) {
 	lockID, err := t.generateLockID()
 	if err != nil {
 		return nil, fmt.Errorf("failed locking database: %w", err)
@@ -158,12 +151,13 @@ LockStart:
 	return &mgLocker{db: t.db, collectionName: t.lockCollectionName, lockID: lockID}, nil
 }
 
-func (t *Target) Add(migration migrations.Migration) error {
-	ctx, cancel := context.WithTimeout(context.Background(), t.operationTimeout)
+func (t *Target) Add(ctx context.Context, id string) error {
+	ctx, cancel := context.WithTimeout(ctx, t.operationTimeout)
 	defer cancel()
 
 	_, err := t.db.Collection(t.collectionName).InsertOne(ctx, migrationModel{
-		ID: migration.ID(),
+		ID:    id,
+		Dirty: true,
 	})
 	if err != nil {
 		return fmt.Errorf("failed adding migration to the executed list: %w", err)
@@ -171,10 +165,38 @@ func (t *Target) Add(migration migrations.Migration) error {
 	return nil
 }
 
-func (t *Target) Remove(migration migrations.Migration) error {
+func (t *Target) FinishMigration(ctx context.Context, id string) error {
+	ctx, cancel := context.WithTimeout(ctx, t.operationTimeout)
+	defer cancel()
+
+	_, err := t.db.Collection(t.collectionName).UpdateOne(ctx,
+		bson.D{{"_id", id}},
+		bson.D{{"$set", bson.D{{"dirty", false}}}},
+	)
+	if err != nil {
+		return fmt.Errorf("failed finishing migration: %w", err)
+	}
+	return nil
+}
+
+func (t *Target) StartMigration(ctx context.Context, id string) error {
+	ctx, cancel := context.WithTimeout(ctx, t.operationTimeout)
+	defer cancel()
+
+	_, err := t.db.Collection(t.collectionName).UpdateOne(ctx,
+		bson.D{{"_id", id}},
+		bson.D{{"$set", bson.D{{"dirty", true}}}},
+	)
+	if err != nil {
+		return fmt.Errorf("failed starting migration: %w", err)
+	}
+	return nil
+}
+
+func (t *Target) Remove(ctx context.Context, id string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), t.operationTimeout)
 	defer cancel()
-	_, err := t.db.Collection(t.collectionName).DeleteOne(ctx, migrationModel{migration.ID()})
+	_, err := t.db.Collection(t.collectionName).DeleteOne(ctx, bson.D{{"_id", id}})
 	if err != nil {
 		return fmt.Errorf("failed removing migration from the executed list: %w", err)
 	}

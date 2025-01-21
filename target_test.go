@@ -6,9 +6,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/jamillosantos/logctx"
-	"github.com/jamillosantos/migrations"
-	"github.com/jamillosantos/migrations/zap"
+	"github.com/jamillosantos/migrations/v2"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
 	"go.mongodb.org/mongo-driver/bson"
@@ -20,8 +18,10 @@ func TestNewTarget(t *testing.T) {
 	t.Run("should run migrations", func(t *testing.T) {
 		db := createMongoClient(t)
 
-		source := migrations.NewSource()
-		target, err := NewTarget(source, db)
+		ctx := context.Background()
+
+		source := migrations.NewMemorySource()
+		target, err := NewTarget(db)
 		require.NoError(t, err, "failed creating target")
 
 		execution := make([]string, 0, 3)
@@ -44,15 +44,11 @@ func TestNewTarget(t *testing.T) {
 			execution = append(execution, "3")
 			return nil
 		}, nil)
-		require.NoError(t, source.Add(m1))
-		require.NoError(t, source.Add(m2))
-		require.NoError(t, source.Add(m3))
+		require.NoError(t, source.Add(ctx, m1))
+		require.NoError(t, source.Add(ctx, m2))
+		require.NoError(t, source.Add(ctx, m3))
 
-		ctx := context.Background()
-
-		runner := migrations.NewRunner(source, target)
-		logger := logctx.From(ctx)
-		stats, err := migrations.Migrate(ctx, runner, zap.NewRunnerReport(logger))
+		stats, err := migrations.Migrate(ctx, source, target)
 		require.NoError(t, err, "failed migrating")
 		require.Len(t, stats.Errored, 0)
 		require.Len(t, stats.Successful, 3)
@@ -68,7 +64,7 @@ func TestNewTarget(t *testing.T) {
 
 		require.Equal(t, []string{"1", "2", "3"}, execution)
 
-		stats, err = migrations.Migrate(ctx, runner, zap.NewRunnerReport(logger))
+		stats, err = migrations.Migrate(ctx, source, target)
 		require.NoError(t, err, "failed migrating")
 		require.Len(t, stats.Errored, 0)
 		require.Len(t, stats.Successful, 0)
@@ -106,17 +102,15 @@ func TestNewTarget(t *testing.T) {
 				defer wg.Done()
 				ctx := context.Background()
 
-				source := migrations.NewSource()
-				require.NoError(t, source.Add(m1))
-				require.NoError(t, source.Add(m2))
-				require.NoError(t, source.Add(m3))
+				source := migrations.NewMemorySource()
+				require.NoError(t, source.Add(ctx, m1))
+				require.NoError(t, source.Add(ctx, m2))
+				require.NoError(t, source.Add(ctx, m3))
 
-				target, err := NewTarget(source, db, LockTimeout(time.Second*10))
+				target, err := NewTarget(db, LockTimeout(time.Second*10))
 				require.NoError(t, err, "failed creating target")
 
-				runner := migrations.NewRunner(source, target)
-				logger := logctx.From(ctx)
-				_, err = migrations.Migrate(ctx, runner, zap.NewRunnerReport(logger))
+				_, err = migrations.Migrate(ctx, source, target)
 				require.NoError(t, err, "failed migrating")
 			}()
 		}
@@ -135,7 +129,7 @@ func createMongoClient(t *testing.T) *mongo.Database {
 	resource, err := pool.Run("mongo", "latest", []string{})
 	require.NoError(t, err, "failed starting mongo")
 	t.Cleanup(func() {
-		resource.Close()
+		_ = resource.Close()
 	})
 
 	client, err := mongo.NewClient(options.Client().SetHosts([]string{resource.GetHostPort("27017/tcp")}))

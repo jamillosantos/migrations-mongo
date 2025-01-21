@@ -25,8 +25,8 @@ type mgLocker struct {
 	lockID         string
 }
 
-func (p *mgLocker) Unlock() error {
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10) // TODO Make this configurable
+func (p *mgLocker) Unlock(ctx context.Context) error {
+	ctx, cancel := context.WithTimeout(ctx, time.Second*10) // TODO Make this configurable
 	defer cancel()
 	lockCollection := p.db.Collection(p.collectionName)
 	err := lockCollection.FindOneAndUpdate(ctx,
