@@ -6,8 +6,8 @@ import (
 	"fmt"
 	"time"
 
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 type lockerPK struct {
@@ -33,9 +33,9 @@ func (p *mgLocker) Unlock(ctx context.Context) error {
 		lockerPK{"lock"},
 		bson.D{
 			{
-				"$set",
-				bson.D{
-					{"lock_id", nil},
+				Key: "$set",
+				Value: bson.D{
+					{Key: "lock_id", Value: nil},
 				},
 			},
 		},

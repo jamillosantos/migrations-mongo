@@ -49,7 +49,7 @@ This should output:
 ------------------------------------
 ```
 
-> The above are zap logs using the [zapfancyencoder](github.com/jamillosantos/zapfancyencoder).
+> The above are zap logs using the [zapfancyencoder](https://github.com/jamillosantos/zapfancyencoder).
 
 ## Migrations
 
@@ -64,7 +64,7 @@ This should output:
 ```
 
 * __ID__: The ID of the migration. We recommend the use of the timestamp in the format `YYYYMMDDHHmmss`. But, in 
-  reality, it can be any `int64` number.
+  reality, it can be any string.
 * __Description__: The description of the migration. This is used to identify the migration in the logs for humans.
 
 ### Migration code
@@ -75,29 +75,20 @@ package migrations
 import (
 	"context"
 
-	. "github.com/jamillosantos/migrations/v2/fnc" // <- provides the Migration function.
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
-var _ = Migration(func(ctx context.Context) error {
-	// DB should be a global variable initialized before the migration runs.
-	
-	// Get the collection.
-	c := DB.Collection("users")
-	
-	// Create the index.
+var _ = Migration(func(ctx context.Context, db *mongo.Database) error {
+	c := db.Collection("users")
 	_, err := c.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: map[string]int{"updated_at": 1},
-		Options: (&options.IndexOptions{}).
+		Keys: bson.D{{"updated_at", 1}},
+		Options: options.Index().
 			SetName("idx_users_updated_at"),
 	})
 	return err
 })
 ```
 
-The migrations in Mongo use the [migrations-fnc](github.com/jamillosantos/migrations-fnc) package. The `migration-fnc` 
-enables functions to be run as migrations.
-
-In the case of Mongo, we will run the Go code to create or drop indexes, collections, etc.
-
+The migrations use the [migrations](https://github.com/jamillosantos/migrations) package with function-based migrations. In the case of MongoDB, we run Go code to create or drop indexes, collections, etc.

@@ -9,9 +9,9 @@ import (
 	"github.com/jamillosantos/migrations/v2"
 	"github.com/ory/dockertest/v3"
 	"github.com/stretchr/testify/require"
-	"go.mongodb.org/mongo-driver/bson"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 func TestNewTarget(t *testing.T) {
@@ -126,25 +126,22 @@ func createMongoClient(t *testing.T) *mongo.Database {
 	require.NoError(t, err, "failed connecting to docker")
 
 	// pulls an image, creates a container based on it and runs it
-	resource, err := pool.Run("mongo", "latest", []string{})
+	resource, err := pool.Run("mongo", "8", []string{})
 	require.NoError(t, err, "failed starting mongo")
 	t.Cleanup(func() {
 		_ = resource.Close()
 	})
 
-	client, err := mongo.NewClient(options.Client().SetHosts([]string{resource.GetHostPort("27017/tcp")}))
-	require.NoError(t, err, "failed creating mongo client")
-
+	var client *mongo.Client
 	require.Eventually(t, func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
-		defer cancel()
-
-		return client.Connect(ctx) == nil
+		var err error
+		client, err = mongo.Connect(options.Client().SetHosts([]string{resource.GetHostPort("27017/tcp")}))
+		return err == nil
 	}, time.Minute, time.Second, "mongo is not ready")
 
 	db := client.Database("migration_test")
 	t.Cleanup(func() {
-		client.Disconnect(context.Background())
+		_ = client.Disconnect(context.Background())
 	})
 	return db
 }

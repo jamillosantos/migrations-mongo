@@ -8,12 +8,12 @@ import (
 	"github.com/jamillosantos/migrations/v2"
 	"github.com/jamillosantos/migrations/v2/reporters"
 	_ "github.com/jamillosantos/zapfancyencoder"
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 	"go.uber.org/zap"
 
-	migrationsmongo "github.com/jamillosantos/migrations-mongo"
-	examplemigrations "github.com/jamillosantos/migrations-mongo/internal/example/migrations"
+	migrationsmongo "github.com/jamillosantos/migrations-mongo/v2"
+	examplemigrations "github.com/jamillosantos/migrations-mongo/v2/internal/example/migrations"
 )
 
 func main() {
@@ -30,7 +30,7 @@ func main() {
 	ctx := context.Background()
 
 	// Start a new mongo connection
-	client, err := mongo.Connect(ctx, options.Client().ApplyURI("mongodb://guest:guest@localhost:27017"))
+	client, err := mongo.Connect(options.Client().ApplyURI("mongodb://guest:guest@localhost:27017"))
 	if err != nil {
 		_, _ = fmt.Fprintf(os.Stderr, "failed to connect with mongo: %s\n", err.Error())
 		os.Exit(1)
