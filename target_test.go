@@ -141,7 +141,7 @@ func createMongoClient(t *testing.T) *mongo.Database {
 
 	db := client.Database("migration_test")
 	t.Cleanup(func() {
-		client.Disconnect(context.Background())
+		_ = client.Disconnect(context.Background())
 	})
 	return db
 }

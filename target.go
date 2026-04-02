@@ -79,7 +79,7 @@ func (t *Target) Destroy(ctx context.Context) error {
 }
 
 var (
-	sortByPK = options.Find().SetSort(bson.D{{"_id", 1}})
+	sortByPK = options.Find().SetSort(bson.D{{Key: "_id", Value: 1}})
 )
 
 func (t *Target) Current(ctx context.Context) (string, error) {
@@ -94,7 +94,7 @@ func (t *Target) Current(ctx context.Context) (string, error) {
 }
 
 func (t *Target) Done(ctx context.Context) ([]string, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), t.operationTimeout)
+	ctx, cancel := context.WithTimeout(ctx, t.operationTimeout)
 	defer cancel()
 
 	rs, err := t.db.Collection(t.collectionName).Find(ctx, bson.D{}, sortByPK)
@@ -121,17 +121,17 @@ func (t *Target) Lock(ctx context.Context) (migrations.Unlocker, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed locking database: %w", err)
 	}
-	ctx, cancel := context.WithTimeout(context.Background(), t.lockTimeout)
+	ctx, cancel := context.WithTimeout(ctx, t.lockTimeout)
 	defer cancel()
 
 	lockCollection := t.db.Collection(t.lockCollectionName)
 LockStart:
 	_, err = lockCollection.UpdateOne(ctx,
 		bson.D{
-			{"_id", "lock"},
-			{"lock_id", bson.D{{"$type", 10}}},
+			{Key: "_id", Value: "lock"},
+			{Key: "lock_id", Value: bson.D{{Key: "$type", Value: 10}}},
 		},
-		bson.D{{"$set", lockerModel{
+		bson.D{{Key: "$set", Value: lockerModel{
 			ID:     "lock",
 			LockID: &lockID,
 		}}},
@@ -170,8 +170,8 @@ func (t *Target) FinishMigration(ctx context.Context, id string) error {
 	defer cancel()
 
 	_, err := t.db.Collection(t.collectionName).UpdateOne(ctx,
-		bson.D{{"_id", id}},
-		bson.D{{"$set", bson.D{{"dirty", false}}}},
+		bson.D{{Key: "_id", Value: id}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "dirty", Value: false}}}},
 	)
 	if err != nil {
 		return fmt.Errorf("failed finishing migration: %w", err)
@@ -184,8 +184,8 @@ func (t *Target) StartMigration(ctx context.Context, id string) error {
 	defer cancel()
 
 	_, err := t.db.Collection(t.collectionName).UpdateOne(ctx,
-		bson.D{{"_id", id}},
-		bson.D{{"$set", bson.D{{"dirty", true}}}},
+		bson.D{{Key: "_id", Value: id}},
+		bson.D{{Key: "$set", Value: bson.D{{Key: "dirty", Value: true}}}},
 	)
 	if err != nil {
 		return fmt.Errorf("failed starting migration: %w", err)
@@ -194,9 +194,9 @@ func (t *Target) StartMigration(ctx context.Context, id string) error {
 }
 
 func (t *Target) Remove(ctx context.Context, id string) error {
-	ctx, cancel := context.WithTimeout(context.Background(), t.operationTimeout)
+	ctx, cancel := context.WithTimeout(ctx, t.operationTimeout)
 	defer cancel()
-	_, err := t.db.Collection(t.collectionName).DeleteOne(ctx, bson.D{{"_id", id}})
+	_, err := t.db.Collection(t.collectionName).DeleteOne(ctx, bson.D{{Key: "_id", Value: id}})
 	if err != nil {
 		return fmt.Errorf("failed removing migration from the executed list: %w", err)
 	}

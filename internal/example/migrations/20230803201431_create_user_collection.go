@@ -15,7 +15,7 @@ var _ = Migration(func(ctx context.Context, db *mongo.Database) error {
 	}
 	c := DB.Collection("users")
 	_, err = c.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{"email", 1}},
+		Keys: bson.D{{Key: "email", Value: 1}},
 		Options: options.Index().
 			SetName("idx_unique_users_email").
 			SetUnique(true),

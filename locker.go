@@ -33,9 +33,9 @@ func (p *mgLocker) Unlock(ctx context.Context) error {
 		lockerPK{"lock"},
 		bson.D{
 			{
-				"$set",
-				bson.D{
-					{"lock_id", nil},
+				Key: "$set",
+				Value: bson.D{
+					{Key: "lock_id", Value: nil},
 				},
 			},
 		},

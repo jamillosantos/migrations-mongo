@@ -11,7 +11,7 @@ import (
 var _ = Migration(func(ctx context.Context, db *mongo.Database) error {
 	c := db.Collection("users")
 	_, err := c.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: bson.D{{"updated_at", 1}},
+		Keys: bson.D{{Key: "updated_at", Value: 1}},
 		Options: options.Index().
 			SetName("idx_users_updated_at"),
 	})
