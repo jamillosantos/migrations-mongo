@@ -5,7 +5,7 @@ import (
 
 	"github.com/jamillosantos/migrations/v2"
 	"github.com/jamillosantos/migrations/v2/fnc"
-	"go.mongodb.org/mongo-driver/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo"
 )
 
 var (

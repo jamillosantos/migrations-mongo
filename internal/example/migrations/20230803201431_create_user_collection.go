@@ -3,8 +3,9 @@ package migrations
 import (
 	"context"
 
-	"go.mongodb.org/mongo-driver/mongo"
-	"go.mongodb.org/mongo-driver/mongo/options"
+	"go.mongodb.org/mongo-driver/v2/bson"
+	"go.mongodb.org/mongo-driver/v2/mongo"
+	"go.mongodb.org/mongo-driver/v2/mongo/options"
 )
 
 var _ = Migration(func(ctx context.Context, db *mongo.Database) error {
@@ -14,8 +15,8 @@ var _ = Migration(func(ctx context.Context, db *mongo.Database) error {
 	}
 	c := DB.Collection("users")
 	_, err = c.Indexes().CreateOne(ctx, mongo.IndexModel{
-		Keys: map[string]int{"email": 1},
-		Options: (&options.IndexOptions{}).
+		Keys: bson.D{{"email", 1}},
+		Options: options.Index().
 			SetName("idx_unique_users_email").
 			SetUnique(true),
 	})
